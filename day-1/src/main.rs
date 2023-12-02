@@ -59,6 +59,6 @@ mod tests {
 
   #[test]
   fn it_works_with_test_input_2() {
-    assert_eq!(day_1("test_input_2"), 51 + 29 + 53);
+    assert_eq!(day_1("test_input_2"), 51 + 29 + 53 + 19);
   }
 }

@@ -5,7 +5,7 @@ use regex::Regex;
 const ERROR_MESSAGE: &str = "Some weird error happened. Help!";
 
 fn parse_line(line: &str) -> Vec<i32> {
-  let re = Regex::new(r"(?:(\d)|(one|two|three|four|five|six|seven|eight|nine))").unwrap();
+  let re = Regex::new(r"(?:(\d)|(zero|one|two|three|four|five|six|seven|eight|nine))").unwrap();
   re.captures_iter(line).map(|captures| {
     let first = captures.get(1);
     let second = captures.get(2);
@@ -31,16 +31,16 @@ fn parse_line(line: &str) -> Vec<i32> {
 
 fn day_1(path: &str) -> i32 {
   let file = fs::read_to_string(path).expect("ok");
-  let result = file
+  file
     .lines()
     .fold(0, |acc, line| {
       let v = parse_line(&line);
+      println!("{}: {:?}", &line, &v);
       acc + match v.len() {
         1 => v[0] * 10 + v[0],
         _ => v[0] * 10 + v[v.len() - 1],
       }
-    });
-  return result;
+    })
 }
 
 fn main() {

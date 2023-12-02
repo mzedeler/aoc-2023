@@ -2,10 +2,46 @@ use std::fs;
 // use str::parse;
 use regex::Regex;
 
+struct StateMachine<T: AsRef<str>> {
+  pattern: T,
+  output: i32
+}
+
 const ERROR_MESSAGE: &str = "Some weird error happened. Help!";
 
+const NUMBER_REGEX: &str = r"(?:(\d)|(zero|one|two|three|four|five|six|seven|eight|nine))";
+
+const OTHER_REGEX: &str = r"(\d|zero|one|two|three|four|five|six|seven|eight|nine).*(\d|zero|one|two|three|four|five|six|seven|eight|nine)";
+
+const FIRST_REGEX: &str = r"(?:(\d)|(zero|one|two|three|four|five|six|seven|eight|nine))";
+
+const LAST_REGEX: &str = r".*(?:(\d)|(zero|one|two|three|four|five|six|seven|eight|nine))";
+
+const TOKENS: [StateMachine<&'static str>; 2] = [StateMachine { pattern: "1", output: 1 }, StateMachine { pattern: "1", output: 1 }];
+
+fn next<'a>(s: StateMachine<&'a str>, c: char) -> Option<StateMachine<&'a str>> {
+  if s.pattern.len() == 0 {
+    panic!("{}", ERROR_MESSAGE)
+  }
+  if s.pattern.chars().next() == Some(c) {
+    Some(StateMachine {
+      pattern: s.pattern.get(1..).unwrap(),
+      output: s.output
+    })
+  } else {
+    None
+  }
+}
+
 fn parse_line(line: &str) -> Vec<i32> {
-  let re = Regex::new(r"(?:(\d)|(zero|one|two|three|four|five|six|seven|eight|nine))").unwrap();
+  // let mut result: Vec<i32> = vec!();
+
+  let re2 = Regex::new(OTHER_REGEX).unwrap();
+  let result = re2.captures(&line);
+  if let Some(captures) = result {
+    println!("C: {}/{:?} - {:?}", &line, captures, captures.get(2).map_or("", |m| m.as_str()));
+  }
+  let re = Regex::new(NUMBER_REGEX).unwrap();
   re.captures_iter(line).map(|captures| {
     let first = captures.get(1);
     let second = captures.get(2);

@@ -2,8 +2,19 @@ use std::fs;
 // use str::parse;
 use regex::Regex;
 
-struct StateMachine<T: AsRef<str>> {
-  pattern: T,
+enum State {
+  Matching(usize),
+  Match(),
+  NoMatch()
+}
+
+struct StateMachine {
+  matcher: Matcher,
+  state: State,
+}
+
+struct Matcher {
+  pattern: &'static str,
   output: i32
 }
 
@@ -17,19 +28,56 @@ const FIRST_REGEX: &str = r"(?:(\d)|(zero|one|two|three|four|five|six|seven|eigh
 
 const LAST_REGEX: &str = r".*(?:(\d)|(zero|one|two|three|four|five|six|seven|eight|nine))";
 
-const TOKENS: [StateMachine<&'static str>; 2] = [StateMachine { pattern: "1", output: 1 }, StateMachine { pattern: "1", output: 1 }];
+const TOKENS: [Matcher; 18] = [
+  Matcher { pattern: "1", output: 1 },
+  Matcher { pattern: "2", output: 2 },
+  Matcher { pattern: "3", output: 3 },
+  Matcher { pattern: "4", output: 4 },
+  Matcher { pattern: "5", output: 5 },
+  Matcher { pattern: "6", output: 6 },
+  Matcher { pattern: "7", output: 7 },
+  Matcher { pattern: "8", output: 8 },
+  Matcher { pattern: "9", output: 9 },
+  Matcher { pattern: "one", output: 1 },
+  Matcher { pattern: "two", output: 2 },
+  Matcher { pattern: "three", output: 3 },
+  Matcher { pattern: "four", output: 4 },
+  Matcher { pattern: "five", output: 5 },
+  Matcher { pattern: "six", output: 6 },
+  Matcher { pattern: "seven", output: 7 },
+  Matcher { pattern: "eight", output: 8 },
+  Matcher { pattern: "nine", output: 9 },
+];
 
-fn next<'a>(s: StateMachine<&'a str>, c: char) -> Option<StateMachine<&'a str>> {
-  if s.pattern.len() == 0 {
-    panic!("{}", ERROR_MESSAGE)
-  }
-  if s.pattern.chars().next() == Some(c) {
-    Some(StateMachine {
-      pattern: s.pattern.get(1..).unwrap(),
-      output: s.output
-    })
-  } else {
-    None
+fn next(s: StateMachine, c: char) -> StateMachine {
+  match s.state {
+    State::Matching(offset) => {
+      if let Some(substring) = s.matcher.pattern.get(offset..) {
+        if substring.chars().next() == Some(c) {
+          if substring.len() == 1 {
+            StateMachine {
+              state: State::Match(),
+              ..s
+            }
+          } else {
+            StateMachine {
+              state: State::Matching(offset + 1),
+              ..s
+            }
+          }
+        } else {
+          StateMachine {
+            state: State::NoMatch(),
+            ..s
+          }
+        }
+      } else {
+        StateMachine {
+          ..s
+        }
+      }
+    },
+    _ => s
   }
 }
 

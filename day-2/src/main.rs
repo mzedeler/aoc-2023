@@ -1,4 +1,5 @@
 use std::fs;
+use std::cmp::max;
 use regex::Regex;
 
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something went wrong. Help!";
@@ -50,8 +51,29 @@ fn day_2(input: &str) -> i32 {
     )
 }
 
+fn game_power(game: Game) -> i32 {
+  let handful = game
+    .handfuls
+    .iter()
+    .fold(
+      Handful::default(),|Handful { red, green, blue }, handful|
+        Handful { red: max(handful.red, red), green: max(handful.green, green), blue: max(handful.blue, blue) }
+    );
+  handful.red * handful.green * handful.blue
+}
+
+fn day_2_2(input: &str) -> i32 {
+  let file = fs::read_to_string(input).expect(UNIVERSAL_ERROR_MESSAGE);
+  file
+    .lines()
+    .map(|line| parse_line(line))
+    .map(|game| game_power(game))
+    .fold(0, |sum, game_power| sum + game_power)
+}
+
 fn main() {
   println!("{}", day_2("input"));
+  println!("{}", day_2_2("input"));
 }
 
 #[cfg(test)]
@@ -61,5 +83,10 @@ mod tests {
   #[test]
   fn it_works_with_test_input() {
     assert_eq!(day_2("test_input"), 8);
+  }
+
+  #[test]
+  fn it_2_works_with_test_input() {
+    assert_eq!(day_2_2("test_input"), 2286);
   }
 }

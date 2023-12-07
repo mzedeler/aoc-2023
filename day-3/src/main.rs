@@ -25,32 +25,6 @@ enum State {
   ParsingSchemaNumber(SchemaNumber)
 }
 
-// impl State {
-//   fn next(mut self, cell: Cell) {
-//     let mut next_state = match cell {
-//       Cell::Empty() => Empty(),
-//       Cell::Part(_) => Part(),
-//       Cell::Digit(_) => ParsingSchemaNumber(),
-//     };
-//     match (self, next_state) {
-//       (Initial() | Empty() | Part(), ParsingSchemaNumber(_)) => {
-
-//       },
-//       (ParsingSchemaNumber)
-//     }
-//   }
-// }
-
-// impl SchemaNumber {
-//   fn is_part_no(mut self: SchemaNumber) {
-//     self.is_part_no = true;
-//   }
-
-//   fn add_digit(mut self: SchemaNumber, digit: u32) {
-//     self.number = self.number * 10 + digit;
-//   }
-// }
-
 fn parse_line(line: &str) -> Vec<Cell> {
   line.chars().map(|c| 
     match c {
@@ -69,22 +43,18 @@ fn parse_file(path: &str) -> Vec<Vec<Cell>> {
     .collect()
 }
 
-// fn has_part(schematic: &Vec<Vec<Cell>>, row_number: usize, col_number: usize) -> bool {
-//   schematic[row_number][col_number] == Cell::Digit(1)
-// }
-
 fn day_3_1(path: &str) -> u32 {
   let schematic = parse_file(path);
   let mut state = State::Initial();
   let mut parts: Vec<(usize, usize)> = vec![];
-  let mut numbers: Vec<Vec<(u32, u32)>> = vec![vec![(0, 0); schematic[0].len()]; schematic.len()];
-  let mut number_id: u32 = 0;
+  let mut numbers = vec![];
+  let mut number_references: Vec<Vec<Option<usize>>> = vec![vec![None; schematic[0].len()]; schematic.len()];
 
   let mut store_number =  |state: &State, row_number: usize| {
     if let State::ParsingSchemaNumber(schema_number) = state {
-      number_id += 1;
+      numbers.push(schema_number.number);
       for col_number in schema_number.col_start ..= schema_number.col_end {
-        numbers[row_number][col_number] = (number_id, schema_number.number);
+        number_references[row_number][col_number] = Some(numbers.len());
       }
     }
   };
@@ -119,7 +89,7 @@ fn day_3_1(path: &str) -> u32 {
       }
     }
   }
-  println!("{:?} {:?}", numbers, parts);
+  println!("{:?} {:?} {:?}", numbers, number_references, parts);
   4361
 }
 

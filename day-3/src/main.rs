@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, ops::Add};
 
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something went wrong. Help!";
 
@@ -54,7 +54,7 @@ fn day_3_1(path: &str) -> u32 {
     if let State::ParsingSchemaNumber(schema_number) = state {
       numbers.push(schema_number.number);
       for col_number in schema_number.col_start ..= schema_number.col_end {
-        number_references[row_number][col_number] = Some(numbers.len());
+        number_references[row_number][col_number] = Some(numbers.len() - 1);
       }
     }
   };
@@ -89,8 +89,27 @@ fn day_3_1(path: &str) -> u32 {
       }
     }
   }
-  println!("{:?} {:?} {:?}", numbers, number_references, parts);
-  4361
+
+  let selected_number_references = parts
+    .iter()
+    .map(|(row_number, col_number)| {
+      static EMPTY: Vec<Option<usize>> = vec![];
+      static OFFSETS: [(isize, isize); 8] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)];
+      OFFSETS.map(|(row_offset, col_offset)| {
+        let peek_row_number = row_number.checked_add_signed(row_offset).unwrap();
+        let peek_col_number = col_number.checked_add_signed(col_offset).unwrap();
+        number_references.get(peek_row_number).unwrap_or(&EMPTY).get(peek_col_number)
+      }).into_iter()
+    })
+    .flatten()
+    .filter(|item| if let Some(Some(_)) = item { true } else { false })
+    .map(|item| item.unwrap().unwrap())
+    .collect::<std::collections::HashSet<usize>>();
+
+  selected_number_references
+    .iter()
+    .map(|number_reference| numbers[*number_reference])
+    .fold(0, |sum, number| sum + number)
 }
 
 fn main() {

@@ -89,6 +89,7 @@ fn day_3_1(path: &str) -> u32 {
       }
     }
     store_number(&state, row_number);
+    state = State::Empty();
   }
 
   let selected_number_references: Vec<usize> = parts
@@ -112,7 +113,7 @@ fn day_3_1(path: &str) -> u32 {
     .flatten()
     .collect();
 
-  // println!("{:?} {:?}", numbers, number_references);
+  println!("{:?}", numbers);
 
   selected_number_references
     .iter()

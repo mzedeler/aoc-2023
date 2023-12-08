@@ -44,7 +44,7 @@ fn parse_file(path: &str) -> Vec<Vec<Cell>> {
 }
 
 struct CollectParts {
-  parts: Vec<(usize, usize)>,
+  parts: Vec<(usize, usize, char)>,
   numbers: Vec<u32>,
   number_references: Vec<Vec<Option<usize>>>
 }
@@ -52,7 +52,7 @@ struct CollectParts {
 fn collect_parts(path: &str) -> CollectParts {
   let schematic = parse_file(path);
   let mut state = State::Initial();
-  let mut parts: Vec<(usize, usize)> = vec![];
+  let mut parts: Vec<(usize, usize, char)> = vec![];
   let mut numbers = vec![];
   let mut number_references: Vec<Vec<Option<usize>>> = vec![vec![None; schematic[0].len()]; schematic.len()];
 
@@ -87,9 +87,9 @@ fn collect_parts(path: &str) -> CollectParts {
           store_number(&state, row_number);
           state = State::Empty();
         },
-        Cell::Part(_) => {
+        Cell::Part(c) => {
           store_number(&state, row_number);
-          parts.push((row_number, col_number));
+          parts.push((row_number, col_number, *c));
           state = State::Part();
         }
       }
@@ -106,7 +106,7 @@ fn day_3_1(path: &str) -> u32 {
 
   let selected_number_references: Vec<usize> = parts
     .iter()
-    .map(|(row_number, col_number)| {
+    .map(|(row_number, col_number, _)| {
       static EMPTY: Vec<Option<usize>> = vec![];
       static OFFSETS: [(isize, isize); 8] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)];
       OFFSETS
@@ -129,8 +129,37 @@ fn day_3_1(path: &str) -> u32 {
     .fold(0, |sum, number| sum + number)
 }
 
+fn day_3_2(path: &str) -> u32 {
+  let CollectParts { parts, numbers, number_references } = collect_parts(path);
+
+  parts
+    .iter()
+    .filter(|(_, _, c)| *c == '*')
+    .map(|(row_number, col_number, c)| {
+      static EMPTY: Vec<Option<usize>> = vec![];
+      static OFFSETS: [(isize, isize); 8] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)];
+      let part_number_references = OFFSETS
+        .map(|(row_offset, col_offset)| {
+          let peek_row_number = row_number.checked_add_signed(row_offset).unwrap();
+          let peek_col_number = col_number.checked_add_signed(col_offset).unwrap();
+          number_references.get(peek_row_number).unwrap_or(&EMPTY).get(peek_col_number)
+        })
+        .into_iter()
+        .filter(|item| if let Some(Some(_)) = item { true } else { false })
+        .map(|item| item.unwrap().unwrap())
+        .collect::<std::collections::HashSet<usize>>().into_iter().collect::<Vec<usize>>();
+      if part_number_references.len() == 2 {
+        numbers[part_number_references[0]] * numbers[part_number_references[1]]
+      } else {
+        0
+      }
+    })
+    .fold(0, |sum, number| sum + number)
+}
+
 fn main() {
-    println!("{}", day_3_1("input"));
+  println!("1: {}", day_3_1("input"));
+  println!("2: {}", day_3_2("input"));
 }
 
 #[cfg(test)]
@@ -140,5 +169,10 @@ mod tests {
   #[test]
   fn day_3_1_handles_test_input() {
     assert_eq!(day_3_1("test_input"), 4361);
+  }
+
+  #[test]
+  fn day_3_2_handles_test_input() {
+    assert_eq!(day_3_2("test_input"), 467835);
   }
 }

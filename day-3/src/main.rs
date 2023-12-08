@@ -111,8 +111,6 @@ fn day_3_1(path: &str) -> u32 {
     .flatten()
     .collect();
 
-  println!("{:?}", numbers);
-
   selected_number_references
     .iter()
     .map(|number_reference| numbers[*number_reference])

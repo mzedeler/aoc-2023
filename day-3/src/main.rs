@@ -43,7 +43,13 @@ fn parse_file(path: &str) -> Vec<Vec<Cell>> {
     .collect()
 }
 
-fn day_3_1(path: &str) -> u32 {
+struct CollectParts {
+  parts: Vec<(usize, usize)>,
+  numbers: Vec<u32>,
+  number_references: Vec<Vec<Option<usize>>>
+}
+
+fn collect_parts(path: &str) -> CollectParts {
   let schematic = parse_file(path);
   let mut state = State::Initial();
   let mut parts: Vec<(usize, usize)> = vec![];
@@ -92,6 +98,12 @@ fn day_3_1(path: &str) -> u32 {
     state = State::Empty();
   }
 
+  CollectParts { parts, numbers, number_references }
+}
+
+fn day_3_1(path: &str) -> u32 {
+  let CollectParts { parts, numbers, number_references } = collect_parts(path);
+
   let selected_number_references: Vec<usize> = parts
     .iter()
     .map(|(row_number, col_number)| {
@@ -110,7 +122,7 @@ fn day_3_1(path: &str) -> u32 {
     })
     .flatten()
     .collect();
-
+  
   selected_number_references
     .iter()
     .map(|number_reference| numbers[*number_reference])

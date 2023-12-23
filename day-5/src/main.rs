@@ -4,7 +4,7 @@ use std::fs::File;
 
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 struct Mapper {
   map: (u32, u32, u32)
 }
@@ -36,15 +36,20 @@ enum AlmanacItem {
   Map(Mapper),
 }
 
+enum State {
+  Initial(),
+  ParsingMap()
+}
+
 struct AlmanacIterator {
   reader: BufReader<File>,
-  seeds_emitted: bool
+  state: State
 }
 
 fn parse_file(path: &str) -> AlmanacIterator {
   let file = File::open(path).expect(UNIVERSAL_ERROR_MESSAGE);
   let reader = BufReader::new(file);
-  AlmanacIterator { reader, seeds_emitted: false }
+  AlmanacIterator { reader, state: State::Initial() }
 }
 
 impl AlmanacIterator {
@@ -63,28 +68,64 @@ impl AlmanacIterator {
   }
 }
 
+enum Line {
+  Empty(),
+  MapHeading(),
+  Numbers(Vec<u32>)
+}
+
+fn parse_line(line: &str) -> Line {
+  if line.trim().len() == 0 {
+    return Line::Empty()
+  }
+
+  if line.contains("map:") {
+    return Line::MapHeading()
+  }
+
+  let numbers: Vec<u32> = line
+    .split(|c| c > '9' || c < '0')
+    .filter(|token| token.trim().len() > 0)
+    .map(|token| token.parse::<u32>().unwrap())
+    .collect();
+
+  Line::Numbers(numbers)
+}
+
 impl Iterator for AlmanacIterator {
   type Item = AlmanacItem;
   
   fn next(&mut self) -> Option<Self::Item> {
+    let mut mapper = Mapper::new();
     loop {
       let buffer = self.next_line()?;
 
-      let numbers: Vec<u32> = buffer
-        .split(|c| c > '9' || c < '0')
-        .filter(|token| token.trim().len() > 0)
-        .map(|token| token.parse::<u32>().unwrap())
-        .collect();
+      let line = parse_line(&buffer);
 
-      if numbers.len() > 0 {
-        if self.seeds_emitted {
-          let mut mapper = Mapper::new();
-          mapper.add_map(numbers[0], numbers[1], numbers[2]);
-          break Some(AlmanacItem::Map(mapper))
-        } else {
-          self.seeds_emitted = true;
-          break Some(AlmanacItem::Seeds(numbers))
-        }  
+      match self.state {
+        State::ParsingMap() => {
+          match line {
+            Line::Empty() => {
+              break Some(AlmanacItem::Map(mapper))
+            },
+            Line::MapHeading() => {
+
+            },
+            Line::Numbers(numbers) => {
+              mapper.add_map(numbers[0], numbers[1], numbers[2]);
+            }
+          }
+        },
+        State::Initial() => {
+          match line {
+            Line::Numbers(numbers) => {
+              self.next_line();
+              self.state = State::ParsingMap();
+              break Some(AlmanacItem::Seeds(numbers))
+            },
+            _ => {}
+          }
+        }
       }
     }
   }
@@ -94,7 +135,7 @@ fn day_5_1(path: &str) -> u32 {
   let mut almanac_iterator = parse_file(path);
   let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
   let result = almanac_iterator.fold(seeds, |acc, item| {
-    let AlmanacItem::Map(mapper) = item else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
+    let AlmanacItem::Map(mapper) = item else { panic!("{} - {:?}", UNIVERSAL_ERROR_MESSAGE, item) };
     acc
       .into_iter()
       .map(|seed| mapper.map(seed))

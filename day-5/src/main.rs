@@ -23,22 +23,12 @@ impl Mapper {
   }
 
   fn map(&self, seed: u32) -> u32 {
-    let mut result = seed;
-
     for (dst_start, src_start, length) in &self.maps {
-      if result >= *src_start && result < src_start + length {
-        if seed == 53 {
-          println!("-> matched ({}, {}, {}) ({})", dst_start, src_start, length, src_start + length);
-        }
-        result = result - src_start + dst_start
+      if seed >= *src_start && seed < src_start + length {
+        return seed - src_start + dst_start
       }
     }
-
-    if seed == 53 {
-      println!("Map: {} -> {} using {:?}", seed, result, &self);
-    }
-
-    return result
+    return seed
   }
 }
 
@@ -163,8 +153,8 @@ fn day_5_1(path: &str) -> u32 {
       .map(|seed| mapper.map(seed))
       .collect()
   });
-  println!("Result: {:?}", result);
-  1
+  let min = result.iter().min().unwrap();
+  return *min;
 }
 
 fn day_5_2(path: &str) -> u32 {

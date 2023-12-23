@@ -10,10 +10,14 @@ struct Mapper {
 }
 
 impl Mapper {
-  fn new(dst_start: u32, src_start: u32, length: u32) -> Mapper {
+  fn new() -> Mapper {
     Mapper {
-      map: (dst_start, src_start, length)
+      map: (0, 0, 0)
     }
+  }
+
+  fn add_map(&mut self, dst_start: u32, src_start: u32, length: u32) {
+    self.map = (dst_start, src_start, length);
   }
 
   fn map(&self, seed: u32) -> u32 {
@@ -74,7 +78,9 @@ impl Iterator for AlmanacIterator {
 
       if numbers.len() > 0 {
         if self.seeds_emitted {
-          break Some(AlmanacItem::Map(Mapper::new(numbers[0], numbers[1], numbers[2])))
+          let mut mapper = Mapper::new();
+          mapper.add_map(numbers[0], numbers[1], numbers[2]);
+          break Some(AlmanacItem::Map(mapper))
         } else {
           self.seeds_emitted = true;
           break Some(AlmanacItem::Seeds(numbers))

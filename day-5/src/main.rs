@@ -6,27 +6,39 @@ const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 
 #[derive(Clone,Debug)]
 struct Mapper {
-  map: (u32, u32, u32)
+  name: String,
+  maps: Vec<(u32, u32, u32)>
 }
 
 impl Mapper {
   fn new() -> Mapper {
     Mapper {
-      map: (0, 0, 0)
+      name: String::new(),
+      maps: vec![],
     }
   }
 
   fn add_map(&mut self, dst_start: u32, src_start: u32, length: u32) {
-    self.map = (dst_start, src_start, length);
+    self.maps.push((dst_start, src_start, length));
   }
 
   fn map(&self, seed: u32) -> u32 {
-    let (dst_start, src_start, length) = self.map;
-    if seed >= src_start && seed < src_start + length {
-      seed - src_start + dst_start
-    } else {
-      seed
+    let mut result = seed;
+
+    for (dst_start, src_start, length) in &self.maps {
+      if result >= *src_start && result < src_start + length {
+        if seed == 53 {
+          println!("-> matched ({}, {}, {}) ({})", dst_start, src_start, length, src_start + length);
+        }
+        result = result - src_start + dst_start
+      }
     }
+
+    if seed == 53 {
+      println!("Map: {} -> {} using {:?}", seed, result, &self);
+    }
+
+    return result
   }
 }
 
@@ -38,7 +50,8 @@ enum AlmanacItem {
 
 enum State {
   Initial(),
-  ParsingMap()
+  ParsingMap(),
+  Done(),
 }
 
 struct AlmanacIterator {
@@ -70,7 +83,7 @@ impl AlmanacIterator {
 
 enum Line {
   Empty(),
-  MapHeading(),
+  MapHeading(String),
   Numbers(Vec<u32>)
 }
 
@@ -80,7 +93,7 @@ fn parse_line(line: &str) -> Line {
   }
 
   if line.contains("map:") {
-    return Line::MapHeading()
+    return Line::MapHeading(line.trim().into())
   }
 
   let numbers: Vec<u32> = line
@@ -96,9 +109,16 @@ impl Iterator for AlmanacIterator {
   type Item = AlmanacItem;
   
   fn next(&mut self) -> Option<Self::Item> {
+    if let State::Done() = self.state {
+      return None
+    }
+
     let mut mapper = Mapper::new();
     loop {
-      let buffer = self.next_line()?;
+      let Some(buffer) = self.next_line() else {
+        self.state = State::Done();
+        break Some(AlmanacItem::Map(mapper))
+      };
 
       let line = parse_line(&buffer);
 
@@ -108,8 +128,8 @@ impl Iterator for AlmanacIterator {
             Line::Empty() => {
               break Some(AlmanacItem::Map(mapper))
             },
-            Line::MapHeading() => {
-
+            Line::MapHeading(name) => {
+              mapper.name = name
             },
             Line::Numbers(numbers) => {
               mapper.add_map(numbers[0], numbers[1], numbers[2]);
@@ -125,7 +145,8 @@ impl Iterator for AlmanacIterator {
             },
             _ => {}
           }
-        }
+        },
+        State::Done() => {}
       }
     }
   }
@@ -136,6 +157,7 @@ fn day_5_1(path: &str) -> u32 {
   let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
   let result = almanac_iterator.fold(seeds, |acc, item| {
     let AlmanacItem::Map(mapper) = item else { panic!("{} - {:?}", UNIVERSAL_ERROR_MESSAGE, item) };
+    println!("Using mapper: {:?}", mapper);
     acc
       .into_iter()
       .map(|seed| mapper.map(seed))

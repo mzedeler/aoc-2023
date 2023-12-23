@@ -2,6 +2,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::File;
 use std::ops::Range;
+use std::slice;
 
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 
@@ -9,6 +10,11 @@ const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 struct Mapper {
   name: String,
   maps: Vec<(u32, u32, u32)>
+}
+
+enum ParseMode {
+  Single(),
+  Ranges(),
 }
 
 impl Mapper {
@@ -34,6 +40,35 @@ impl Mapper {
   }
 }
 
+enum SplitRange {
+  Outside(Range<u32>),
+  Inside(Range<u32>),
+}
+
+fn split(seeds: Range<u32>, src_start: u32, length: u32) -> Vec<SplitRange> {
+  let src_end = src_start + length - 1;
+  let start_contained = seeds.contains(&src_start);
+  let end_contained = seeds.contains(&src_end);
+  match (start_contained, end_contained) {
+    (true, true) => vec![SplitRange::Inside(seeds)],
+    (true, false) => vec![SplitRange::Inside(seeds.start .. src_end), SplitRange::Outside(src_end .. seeds.end)],
+    (false, true) => vec![SplitRange::Outside(seeds.start .. src_start), SplitRange::Inside(src_start .. seeds.end)],
+    (false, false) => vec![SplitRange::Outside(seeds.start .. src_start), SplitRange::Inside(src_start .. src_end), SplitRange::Outside(src_end .. seeds.end)]
+  }
+}
+
+fn project(seeds: Range<u32>, map: (u32, u32, u32)) -> Vec<Range<u32>> {
+  let (dst_start, src_start, length) = map;
+  let offset = dst_start - src_start;
+  split(seeds, src_start, length)
+    .iter()
+    .map(|split_range| match split_range {
+      SplitRange::Inside(seeds) => seeds.to_owned(),
+      SplitRange::Outside(seeds) => seeds.start + offset .. seeds.end + offset,
+    })
+    .collect()
+}
+
 #[derive(Debug)]
 enum AlmanacItem {
   Seeds(Vec<Range<u32>>),
@@ -48,13 +83,14 @@ enum State {
 
 struct AlmanacIterator {
   reader: BufReader<File>,
-  state: State
+  state: State,
+  parse_mode: ParseMode,
 }
 
-fn parse_file(path: &str) -> AlmanacIterator {
+fn parse_file(path: &str, parse_mode: ParseMode) -> AlmanacIterator {
   let file = File::open(path).expect(UNIVERSAL_ERROR_MESSAGE);
   let reader = BufReader::new(file);
-  AlmanacIterator { reader, state: State::Initial() }
+  AlmanacIterator { reader, state: State::Initial(), parse_mode }
 }
 
 impl AlmanacIterator {
@@ -133,7 +169,11 @@ impl Iterator for AlmanacIterator {
             Line::Numbers(numbers) => {
               self.next_line();
               self.state = State::ParsingMap();
-              break Some(AlmanacItem::Seeds(numbers.iter().map(|number| *number .. number + 1).collect()))
+              break match self.parse_mode {
+                ParseMode::Single() => Some(AlmanacItem::Seeds(numbers.iter().map(|number| *number .. number + 1).collect())),
+                ParseMode::Ranges() => Some(AlmanacItem::Seeds(numbers.chunks(2).map(|pair| pair[0] .. pair[0] + pair[1]).collect())),
+              }
+              
             },
             _ => {}
           }
@@ -145,7 +185,7 @@ impl Iterator for AlmanacIterator {
 }
 
 fn day_5_1(path: &str) -> u32 {
-  let mut almanac_iterator = parse_file(path);
+  let mut almanac_iterator = parse_file(path, ParseMode::Single());
   let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
   let result = almanac_iterator.fold(seeds, |acc, item| {
     let AlmanacItem::Map(mapper) = item else { panic!("{} - {:?}", UNIVERSAL_ERROR_MESSAGE, item) };
@@ -159,7 +199,7 @@ fn day_5_1(path: &str) -> u32 {
 }
 
 fn day_5_2(path: &str) -> u32 {
-  let mut almanac_iterator = parse_file(path);
+  let mut almanac_iterator = parse_file(path, ParseMode::Ranges());
   let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
   let result = almanac_iterator.fold(seeds, |acc, item| {
     let AlmanacItem::Map(mapper) = item else { panic!("{} - {:?}", UNIVERSAL_ERROR_MESSAGE, item) };

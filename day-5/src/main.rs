@@ -15,6 +15,15 @@ impl Mapper {
       map: (dst_start, src_start, length)
     }
   }
+
+  fn map(&self, seed: u32) -> u32 {
+    let (dst_start, src_start, length) = self.map;
+    if seed >= src_start && seed < src_start + length {
+      seed - src_start + dst_start
+    } else {
+      seed
+    }
+  }
 }
 
 #[derive(Debug)]
@@ -79,20 +88,10 @@ fn day_5_1(path: &str) -> u32 {
   let mut almanac_iterator = parse_file(path);
   let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
   let result = almanac_iterator.fold(seeds, |acc, item| {
-    let AlmanacItem::Map(Mapper { map: (dst_start, src_start, length) }) = item else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
+    let AlmanacItem::Map(mapper) = item else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
     acc
       .into_iter()
-      .map(|seed| {
-        let result = if seed >= src_start && seed < src_start + length {
-          seed - src_start + dst_start
-        } else {
-          seed
-        };
-        if result != seed && seed == 49 && result == 38 {
-          println!("{} -> {} ({}, {}, {})", seed, result, dst_start, src_start, length);
-        }
-        result
-      })
+      .map(|seed| mapper.map(seed))
       .collect()
   });
   println!("Result: {:?}", result);

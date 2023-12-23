@@ -1,6 +1,7 @@
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::File;
+use std::ops::Range;
 
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 
@@ -22,10 +23,11 @@ impl Mapper {
     self.maps.push((dst_start, src_start, length));
   }
 
-  fn map(&self, seed: u32) -> u32 {
+  fn map(&self, seed: Range<u32>) -> Range<u32> {
     for (dst_start, src_start, length) in &self.maps {
-      if seed >= *src_start && seed < src_start + length {
-        return seed - src_start + dst_start
+      if seed.start >= *src_start && seed.start < src_start + length {
+        let start = seed.start - src_start + dst_start;
+        return start .. start + 1
       }
     }
     return seed
@@ -34,7 +36,7 @@ impl Mapper {
 
 #[derive(Debug)]
 enum AlmanacItem {
-  Seeds(Vec<u32>),
+  Seeds(Vec<Range<u32>>),
   Map(Mapper),
 }
 
@@ -131,7 +133,7 @@ impl Iterator for AlmanacIterator {
             Line::Numbers(numbers) => {
               self.next_line();
               self.state = State::ParsingMap();
-              break Some(AlmanacItem::Seeds(numbers))
+              break Some(AlmanacItem::Seeds(numbers.iter().map(|number| *number .. number + 1).collect()))
             },
             _ => {}
           }
@@ -153,8 +155,7 @@ fn day_5_1(path: &str) -> u32 {
       .map(|seed| mapper.map(seed))
       .collect()
   });
-  let min = result.iter().min().unwrap();
-  return *min;
+  result.iter().map(|range| range.start).min().unwrap()
 }
 
 fn day_5_2(path: &str) -> u32 {

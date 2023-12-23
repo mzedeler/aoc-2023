@@ -159,7 +159,17 @@ fn day_5_1(path: &str) -> u32 {
 }
 
 fn day_5_2(path: &str) -> u32 {
-  1
+  let mut almanac_iterator = parse_file(path);
+  let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
+  let result = almanac_iterator.fold(seeds, |acc, item| {
+    let AlmanacItem::Map(mapper) = item else { panic!("{} - {:?}", UNIVERSAL_ERROR_MESSAGE, item) };
+    println!("Using mapper: {:?}", mapper);
+    acc
+      .into_iter()
+      .map(|seed| mapper.map(seed))
+      .collect()
+  });
+  result.iter().map(|range| range.start).min().unwrap()
 }
 
 fn main() {
@@ -178,6 +188,6 @@ mod tests {
 
   #[test]
   fn day_5_2_handles_test_input() {
-    assert_eq!(day_5_2("test_input"), 1);
+    assert_eq!(day_5_2("test_input"), 46);
   }
 }

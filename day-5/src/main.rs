@@ -5,9 +5,22 @@ use std::fs::File;
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 
 #[derive(Debug)]
+struct Mapper {
+  map: (u32, u32, u32)
+}
+
+impl Mapper {
+  fn new(dst_start: u32, src_start: u32, length: u32) -> Mapper {
+    Mapper {
+      map: (dst_start, src_start, length)
+    }
+  }
+}
+
+#[derive(Debug)]
 enum AlmanacItem {
   Seeds(Vec<u32>),
-  Map((u32, u32, u32)),
+  Map(Mapper),
 }
 
 struct AlmanacIterator {
@@ -42,9 +55,9 @@ impl Iterator for AlmanacIterator {
   
   fn next(&mut self) -> Option<Self::Item> {
     loop {
-      let buffer = Some(self.next_line())?;
+      let buffer = self.next_line()?;
 
-      let numbers: Vec<u32> = buffer.unwrap()
+      let numbers: Vec<u32> = buffer
         .split(|c| c > '9' || c < '0')
         .filter(|token| token.trim().len() > 0)
         .map(|token| token.parse::<u32>().unwrap())
@@ -52,8 +65,7 @@ impl Iterator for AlmanacIterator {
 
       if numbers.len() > 0 {
         if self.seeds_emitted {
-          println!("Numbers before emit: {:?}", numbers);
-          break Some(AlmanacItem::Map((numbers[0], numbers[1], numbers[2])))
+          break Some(AlmanacItem::Map(Mapper::new(numbers[0], numbers[1], numbers[2])))
         } else {
           self.seeds_emitted = true;
           break Some(AlmanacItem::Seeds(numbers))
@@ -65,11 +77,25 @@ impl Iterator for AlmanacIterator {
 
 fn day_5_1(path: &str) -> u32 {
   let mut almanac_iterator = parse_file(path);
-  println!("-> {:?}", almanac_iterator.next());
-  println!("-> {:?}", almanac_iterator.next());
-  println!("-> {:?}", almanac_iterator.next());
-  println!("-> {:?}", almanac_iterator.next());
-  println!("-> {:?}", almanac_iterator.next());
+  let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
+  let result = almanac_iterator.fold(seeds, |acc, item| {
+    let AlmanacItem::Map(Mapper { map: (dst_start, src_start, length) }) = item else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
+    acc
+      .into_iter()
+      .map(|seed| {
+        let result = if seed >= src_start && seed < src_start + length {
+          seed - src_start + dst_start
+        } else {
+          seed
+        };
+        if result != seed && seed == 49 && result == 38 {
+          println!("{} -> {} ({}, {}, {})", seed, result, dst_start, src_start, length);
+        }
+        result
+      })
+      .collect()
+  });
+  println!("Result: {:?}", result);
   1
 }
 

@@ -2,7 +2,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::File;
 use std::ops::Range;
-use std::slice;
+use std::collections::HashSet;
 
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 
@@ -64,28 +64,39 @@ impl Mapper {
   }
 
   fn map(&self, seed: Range<u32>) -> Vec<Range<u32>> {
-    let mut mapped: Vec<&Range<u32>> = vec![];
-    let mut unmapped = vec![&seed];
-    for (dst_start, src_start, length) in &self.maps {
-      for seed in unmapped.iter() {
-        let (mapped_proj, unmapped_proj): (Vec<_>, Vec<_>) = 
-          project(**seed, (*dst_start, *src_start, *length))
-            .iter()
-            .map(|p| match p {
-              Projection::Mapped(seed) => (false, seed),
-              Projection::UnMapped(seed) => (true, seed),
+    let r = self
+      .maps
+      .iter()
+      .fold((vec![seed.start .. seed.end], vec![]), |(unmapped, mapped), map| {
+        let result: (Vec<_>, Vec<_>) = unmapped
+          .iter()
+          .flat_map(|seed| {
+            let projection = project(seed.start .. seed.end, *map);
+            let (mapped_proj, unmapped_proj): (Vec<_>, Vec<_>) = 
+              projection
+                .iter()
+                .map(|p| match p {
+                  Projection::Mapped(seed) => (false, seed),
+                  Projection::UnMapped(seed) => (true, seed),
+                })
+                .partition(|(partition, _)| *partition);
+    
+              let mapped = mapped_proj
+                .iter()
+                .map(|(_, seed)| seed.start .. seed.end)
+                .collect();
+    
+              let unmapped = unmapped_proj
+                .iter()
+                .map(|(_, seed)| seed.start .. seed.end)
+                .collect();
+    
+              (mapped, unmapped)
             })
-            .partition(|(partition, _)| *partition);
-          mapped = mapped_proj
-            .iter()
-            .map(|(_, seed)| *seed)
             .collect();
-          unmapped = unmapped_proj
-            .iter()
-            .map(|(_, seed)| *seed)
-            .collect();
-        }
-    }
+          result
+      });
+    
     vec![]
     // mapped.iter().chain(unmapped.iter()).map(|seed| **seed).collect()
   }

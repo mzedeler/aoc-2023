@@ -3,6 +3,7 @@ use std::io::BufReader;
 use std::fs::File;
 use std::ops::Range;
 use std::collections::HashSet;
+use std::pin::Pin;
 
 const UNIVERSAL_ERROR_MESSAGE: &str = "Something unexpected happened. Help!";
 
@@ -12,11 +13,11 @@ enum ParseMode {
 }
 
 enum SplitRange {
-  Outside(Range<u32>),
-  Inside(Range<u32>),
+  Outside(Range<i32>),
+  Inside(Range<i32>),
 }
 
-fn split(seeds: Range<u32>, src_start: u32, length: u32) -> Vec<SplitRange> {
+fn split(seeds: Range<i32>, src_start: i32, length: i32) -> Vec<SplitRange> {
   let src_end = src_start + length - 1;
   let start_contained = seeds.contains(&src_start);
   let end_contained = seeds.contains(&src_end);
@@ -28,19 +29,21 @@ fn split(seeds: Range<u32>, src_start: u32, length: u32) -> Vec<SplitRange> {
   }
 }
 
+#[derive(Debug)]
 enum Projection {
-  Mapped(Range<u32>),
-  UnMapped(Range<u32>),
+  Mapped(Range<i32>),
+  UnMapped(Range<i32>),
 }
 
-fn project(seeds: Range<u32>, map: (u32, u32, u32)) -> Vec<Projection> {
+fn project(seeds: Range<i32>, map: (i32, i32, i32)) -> Vec<Projection> {
   let (dst_start, src_start, length) = map;
-  let offset = dst_start - src_start;
+  println!("{} - {}", dst_start, src_start);
+  let offset: i32 = (dst_start - src_start).try_into().unwrap();
   split(seeds, src_start, length)
     .iter()
     .map(|split_range| match split_range {
       SplitRange::Inside(seeds) => Projection::UnMapped(seeds.to_owned()),
-      SplitRange::Outside(seeds) => Projection::Mapped(seeds.start + offset .. seeds.end + offset),
+      SplitRange::Outside(seeds) => Projection::Mapped(seeds.start + offset  .. seeds.end + offset),
     })
     .collect()
 }
@@ -48,7 +51,7 @@ fn project(seeds: Range<u32>, map: (u32, u32, u32)) -> Vec<Projection> {
 #[derive(Clone,Debug)]
 struct Mapper {
   name: String,
-  maps: Vec<(u32, u32, u32)>
+  maps: Vec<(i32, i32, i32)>
 }
 
 impl Mapper {
@@ -59,52 +62,40 @@ impl Mapper {
     }
   }
 
-  fn add_map(&mut self, dst_start: u32, src_start: u32, length: u32) {
+  fn add_map(&mut self, dst_start: i32, src_start: i32, length: i32) {
     self.maps.push((dst_start, src_start, length));
   }
 
-  fn map(&self, seed: Range<u32>) -> Vec<Range<u32>> {
-    let r = self
-      .maps
-      .iter()
-      .fold((vec![seed.start .. seed.end], vec![]), |(unmapped, mapped), map| {
-        let result: (Vec<_>, Vec<_>) = unmapped
-          .iter()
-          .map(|seed| {
-            let projection = project(seed.start .. seed.end, *map);
-            let (mapped_proj, unmapped_proj): (Vec<_>, Vec<_>) = 
-              projection
-                .iter()
-                .map(|p| match p {
-                  Projection::Mapped(seed) => (false, seed),
-                  Projection::UnMapped(seed) => (true, seed),
-                })
-                .partition(|(partition, _)| *partition);
-    
-              let mapped = mapped_proj
-                .iter()
-                .map(|(_, seed)| seed.start .. seed.end)
-                .collect();
-    
-              let unmapped = unmapped_proj
-                .iter()
-                .map(|(_, seed)| seed.start .. seed.end)
-                .collect();
-    
-              (mapped, unmapped)
-            })
-            .collect();
-          result
-      });
+  fn map(&self, seed: Range<i32>) -> Vec<Range<i32>> {
+    let mut mapped: HashSet<Range<i32>> = HashSet::new();
+    let mut unmapped: HashSet<Range<i32>> = HashSet::from([seed]);
+
+    for map in &self.maps {
+      let unmapped_clone = unmapped.to_owned();
+      let mut remove_unmapped = vec![];
+      for seed in unmapped_clone {
+        for projection in project(seed.start .. seed.end, *map) {
+          match projection {
+            Projection::Mapped(new_seed) => {
+              remove_unmapped.push(seed.start .. seed.end);
+              mapped.insert(new_seed);
+            },
+            _ => {}
+          }
+        }
+      }
+      for seed in remove_unmapped {
+        unmapped.remove(&seed);
+      }
+    }
     
     vec![]
-    // mapped.iter().chain(unmapped.iter()).map(|seed| **seed).collect()
   }
 }
 
 #[derive(Debug)]
 enum AlmanacItem {
-  Seeds(Vec<Range<u32>>),
+  Seeds(Vec<Range<i32>>),
   Map(Mapper),
 }
 
@@ -145,7 +136,7 @@ impl AlmanacIterator {
 enum Line {
   Empty(),
   MapHeading(String),
-  Numbers(Vec<u32>)
+  Numbers(Vec<i32>)
 }
 
 fn parse_line(line: &str) -> Line {
@@ -157,10 +148,10 @@ fn parse_line(line: &str) -> Line {
     return Line::MapHeading(line.trim().into())
   }
 
-  let numbers: Vec<u32> = line
+  let numbers: Vec<i32> = line
     .split(|c| c > '9' || c < '0')
     .filter(|token| token.trim().len() > 0)
-    .map(|token| token.parse::<u32>().unwrap())
+    .map(|token| token.parse::<i32>().unwrap())
     .collect();
 
   Line::Numbers(numbers)
@@ -217,7 +208,7 @@ impl Iterator for AlmanacIterator {
   }
 }
 
-fn day_5_1(path: &str) -> u32 {
+fn day_5_1(path: &str) -> i32 {
   let mut almanac_iterator = parse_file(path, ParseMode::Single());
   let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
   let result = almanac_iterator.fold(seeds, |acc, item| {
@@ -231,7 +222,7 @@ fn day_5_1(path: &str) -> u32 {
   result.iter().map(|range| range.start).min().unwrap()
 }
 
-fn day_5_2(path: &str) -> u32 {
+fn day_5_2(path: &str) -> i32 {
   let mut almanac_iterator = parse_file(path, ParseMode::Ranges());
   let Some(AlmanacItem::Seeds(seeds)) = almanac_iterator.next() else { panic!("{}", UNIVERSAL_ERROR_MESSAGE) };
   let result = almanac_iterator.fold(seeds, |acc, item| {

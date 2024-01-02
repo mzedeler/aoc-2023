@@ -70,7 +70,7 @@ impl Mapper {
       .fold((vec![seed.start .. seed.end], vec![]), |(unmapped, mapped), map| {
         let result: (Vec<_>, Vec<_>) = unmapped
           .iter()
-          .flat_map(|seed| {
+          .map(|seed| {
             let projection = project(seed.start .. seed.end, *map);
             let (mapped_proj, unmapped_proj): (Vec<_>, Vec<_>) = 
               projection
